@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ConnectBahirDar</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --sand:#f5efe6; --cream:#faf7f2; --warm:#e8ddd0;
+      --bark:#8b6f5e; --earth:#5c4033; --forest:#2d5016;
+      --gold:#c9a84c; --gold-light:#f0d080;
+      --red:#c0392b; --green:#27ae60;
+      --text:#2c1810; --muted:#7a6055;
+      --radius:20px;
+      --shadow:0 8px 32px rgba(44,24,16,0.12);
+      --shadow-lg:0 20px 60px rgba(44,24,16,0.18);
+    }
+    body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--text); min-height:100vh; }
+    nav {
+      background:var(--earth); padding:0 32px;
+      display:flex; align-items:center; justify-content:space-between;
+      height:68px; position:sticky; top:0; z-index:100;
+      box-shadow:0 2px 20px rgba(0,0,0,0.25);
+    }
+    .logo { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; color:var(--gold-light); letter-spacing:0.5px; }
+    .logo span { color:#fff; }
+    .nav-right { display:flex; gap:12px; align-items:center; }
+    .nav-btn {
+      background:none; border:1.5px solid rgba(255,255,255,0.3); color:#fff;
+      font-family:'DM Sans',sans-serif; font-size:14px; padding:8px 20px;
+      border-radius:50px; cursor:pointer; transition:all 0.2s;
+    }
+    .nav-btn:hover { background:rgba(255,255,255,0.1); border-color:var(--gold-light); }
+    .nav-btn.primary { background:var(--gold); border-color:var(--gold); color:var(--earth); font-weight:600; }
+    .nav-btn.primary:hover { background:var(--gold-light); }
+    .badge { background:var(--red); color:white; font-size:11px; font-weight:700; border-radius:50px; padding:2px 7px; margin-left:4px; }
+    .hero {
+      background:linear-gradient(135deg,var(--earth) 0%,#7d3c1c 60%,var(--bark) 100%);
+      padding:70px 40px; text-align:center; position:relative; overflow:hidden;
+    }
+    .hero h1 { font-family:'Playfair Display',serif; font-size:clamp(32px,5vw,52px); color:var(--gold-light); margin-bottom:12px; }
+    .hero p  { color:rgba(255,255,255,0.8); font-size:16px; }
+    .filters { background:white; padding:18px 32px; display:flex; gap:10px; flex-wrap:wrap; border-bottom:2px solid var(--warm); }
+    .filter-btn {
+      background:var(--sand); border:2px solid var(--warm); color:var(--earth);
+      font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500;
+      padding:8px 18px; border-radius:50px; cursor:pointer; transition:all 0.2s;
+    }
+    .filter-btn:hover,.filter-btn.active { background:var(--earth); border-color:var(--earth); color:white; }
+    main { max-width:1200px; margin:0 auto; padding:40px 24px; }
+    .section-title { font-family:'Playfair Display',serif; font-size:28px; color:var(--earth); margin-bottom:8px; }
+    .section-subtitle { color:var(--muted); font-size:15px; margin-bottom:32px; }
+    .room-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:28px; }
+    .room-card {
+      background:white; border-radius:var(--radius); overflow:hidden;
+      box-shadow:var(--shadow); transition:transform 0.25s,box-shadow 0.25s;
+      border:2px solid transparent;
+    }
+    .room-card:hover { transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:var(--gold); }
+    .room-img-wrap { position:relative; height:200px; overflow:hidden; }
+    .room-img-wrap img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
+    .room-card:hover .room-img-wrap img { transform:scale(1.05); }
+    .room-badge { position:absolute; top:12px; left:12px; padding:4px 12px; border-radius:50px; font-size:12px; font-weight:600; backdrop-filter:blur(10px); }
+    .room-badge.available { background:rgba(39,174,96,0.9); color:white; }
+    .room-badge.occupied  { background:rgba(192,57,43,0.9);  color:white; }
+    .room-badge.pending   { background:rgba(201,168,76,0.95); color:var(--earth); }
+    .room-price-tag { position:absolute; bottom:12px; right:12px; background:var(--earth); color:var(--gold-light); padding:6px 14px; border-radius:50px; font-size:14px; font-weight:700; }
+    .room-body { padding:20px; }
+    .room-name { font-family:'Playfair Display',serif; font-size:19px; color:var(--text); margin-bottom:4px; }
+    .room-hotel { font-size:13px; color:var(--muted); margin-bottom:12px; }
+    .room-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+    .room-tag { background:var(--sand); color:var(--earth); font-size:11px; font-weight:500; padding:4px 10px; border-radius:50px; border:1px solid var(--warm); }
+    .room-footer { display:flex; align-items:center; justify-content:space-between; }
+    .room-rating { font-size:13px; color:var(--muted); }
+    .room-rating span { color:var(--gold); }
+    .book-btn {
+      background:var(--earth); color:white; border:none;
+      font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600;
+      padding:10px 22px; border-radius:50px; cursor:pointer; transition:all 0.2s;
+    }
+    .book-btn:hover { background:var(--bark); transform:scale(1.04); }
+    .book-btn:disabled { background:var(--warm); color:var(--muted); cursor:not-allowed; transform:none; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(44,24,16,0.65); backdrop-filter:blur(4px); z-index:200; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s; }
+    .modal-overlay.open { display:flex; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .modal { background:white; border-radius:28px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); animation:slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+    @keyframes slideUp { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
+    .modal-header { background:linear-gradient(135deg,var(--earth),var(--bark)); padding:28px 28px 20px; border-radius:28px 28px 0 0; position:relative; }
+    .modal-header h2 { font-family:'Playfair Display',serif; font-size:22px; color:var(--gold-light); }
+    .modal-header p  { color:rgba(255,255,255,0.7); font-size:13px; margin-top:4px; }
+    .modal-close { position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.15); border:none; color:white; width:34px; height:34px; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s; }
+    .modal-close:hover { background:rgba(255,255,255,0.25); }
+    .modal-body { padding:28px; }
+    .steps { display:flex; gap:0; margin-bottom:28px; position:relative; }
+    .steps::before { content:''; position:absolute; top:16px; left:16px; right:16px; height:2px; background:var(--warm); z-index:0; }
+    .step { flex:1; text-align:center; position:relative; z-index:1; }
+    .step-dot { width:32px; height:32px; border-radius:50%; background:var(--warm); color:var(--muted); font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; margin:0 auto 6px; transition:all 0.3s; border:3px solid white; }
+    .step.active .step-dot { background:var(--earth); color:white; }
+    .step.done   .step-dot { background:var(--green); color:white; }
+    .step-label { font-size:11px; color:var(--muted); font-weight:500; }
+    .step.active .step-label { color:var(--earth); font-weight:600; }
+    .room-summary { background:var(--sand); border:2px solid var(--warm); border-radius:16px; padding:16px; display:flex; gap:14px; margin-bottom:24px; }
+    .room-summary img { width:80px; height:60px; object-fit:cover; border-radius:10px; }
+    .room-summary-info h4 { font-family:'Playfair Display',serif; font-size:16px; color:var(--earth); }
+    .room-summary-info p  { font-size:13px; color:var(--muted); }
+    .room-summary-price { margin-left:auto; text-align:right; flex-shrink:0; }
+    .room-summary-price strong { font-size:18px; color:var(--earth); display:block; }
+    .room-summary-price small  { font-size:11px; color:var(--muted); }
+    .form-group { margin-bottom:18px; }
+    .form-label { display:block; font-size:13px; font-weight:600; color:var(--earth); margin-bottom:6px; }
+    .form-label .required { color:var(--red); margin-left:2px; }
+    .form-input { width:100%; padding:12px 16px; border:2px solid var(--warm); border-radius:12px; font-family:'DM Sans',sans-serif; font-size:15px; color:var(--text); background:var(--cream); transition:border-color 0.2s; outline:none; }
+    .form-input:focus { border-color:var(--earth); background:white; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .form-hint  { font-size:11px; color:var(--muted); margin-top:5px; }
+    .error-msg  { color:var(--red); font-size:12px; margin-top:5px; }
+    .price-breakdown { background:var(--sand); border:2px solid var(--warm); border-radius:16px; padding:18px; margin:20px 0; }
+    .price-breakdown h4 { font-size:14px; font-weight:600; color:var(--earth); margin-bottom:12px; }
+    .price-row { display:flex; justify-content:space-between; font-size:14px; color:var(--muted); margin-bottom:8px; }
+    .price-row.total { border-top:2px solid var(--warm); padding-top:10px; margin-top:6px; font-weight:700; font-size:16px; color:var(--text); }
+    .price-row.total span { color:var(--earth); }
+    .payment-box { background:linear-gradient(135deg,#1a5c2e,#2d8a4e); border-radius:16px; padding:20px; color:white; margin:20px 0; }
+    .payment-box-header { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+    .cbe-icon { width:44px; height:44px; background:white; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .payment-box h4 { font-family:'Playfair Display',serif; font-size:16px; }
+    .payment-box small { opacity:0.75; font-size:12px; }
+    .acct-number { background:rgba(255,255,255,0.15); border:1.5px solid rgba(255,255,255,0.3); border-radius:12px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .acct-number .label  { font-size:11px; opacity:0.7; margin-bottom:3px; }
+    .acct-number .number { font-size:20px; font-weight:700; letter-spacing:2px; }
+    .copy-btn { background:rgba(255,255,255,0.2); border:1.5px solid rgba(255,255,255,0.4); color:white; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600; padding:6px 14px; border-radius:50px; cursor:pointer; transition:background 0.2s; }
+    .copy-btn:hover { background:rgba(255,255,255,0.3); }
+    .payment-steps-list { list-style:none; }
+    .payment-steps-list li { font-size:13px; opacity:0.9; padding:4px 0 4px 20px; position:relative; }
+    .payment-steps-list li::before { content:'→'; position:absolute; left:0; opacity:0.6; }
+    .upload-zone { border:2.5px dashed var(--warm); border-radius:14px; padding:24px; text-align:center; cursor:pointer; transition:all 0.2s; background:var(--cream); margin:16px 0; }
+    .upload-zone:hover { border-color:var(--earth); background:var(--sand); }
+    .upload-zone.has-file { border-color:var(--green); background:#f0fff4; }
+    .upload-zone input { display:none; }
+    .upload-icon { font-size:32px; margin-bottom:8px; }
+    .upload-zone p      { font-size:13px; color:var(--muted); }
+    .upload-zone strong { font-size:14px; color:var(--earth); display:block; margin-bottom:4px; }
+    .modal-actions { display:flex; gap:10px; margin-top:8px; }
+    .btn-back { background:var(--sand); border:2px solid var(--warm); color:var(--earth); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; padding:12px 24px; border-radius:50px; cursor:pointer; transition:all 0.2s; }
+    .btn-back:hover { background:var(--warm); }
+    .btn-next { flex:1; background:var(--earth); border:none; color:white; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:700; padding:12px 24px; border-radius:50px; cursor:pointer; transition:all 0.2s; }
+    .btn-next:hover { background:var(--bark); }
+    .btn-confirm { flex:1; background:linear-gradient(135deg,#1a5c2e,#2d8a4e); border:none; color:white; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:700; padding:12px 24px; border-radius:50px; cursor:pointer; transition:all 0.2s; }
+    .btn-confirm:hover { opacity:0.9; }
+    .success-view { text-align:center; padding:10px 0; }
+    .success-icon { font-size:64px; margin-bottom:16px; animation:pop 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+    @keyframes pop { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+    .success-view h3 { font-family:'Playfair Display',serif; font-size:24px; color:var(--earth); margin-bottom:8px; }
+    .success-view p  { color:var(--muted); font-size:14px; line-height:1.6; }
+    .success-ref { background:var(--sand); border:2px solid var(--warm); border-radius:14px; padding:16px; margin:20px 0; }
+    .success-ref .ref-code { font-size:22px; font-weight:700; color:var(--earth); letter-spacing:1px; }
+    .success-ref small { font-size:12px; color:var(--muted); }
+    .booking-item { border:2px solid var(--warm); border-radius:16px; overflow:hidden; margin-bottom:14px; transition:border-color 0.2s; }
+    .booking-item:hover { border-color:var(--gold); }
+    .booking-item-img  { width:100%; height:130px; object-fit:cover; }
+    .booking-item-body { padding:14px; }
+    .booking-item-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+    .booking-item-name { font-family:'Playfair Display',serif; font-size:16px; color:var(--text); }
+    .status-pill { font-size:11px; font-weight:700; padding:4px 10px; border-radius:50px; }
+    .status-pill.pending   { background:#fef9c3; color:#92400e; }
+    .status-pill.confirmed { background:#dcfce7; color:#166534; }
+    .status-pill.rejected  { background:#fee2e2; color:#991b1b; }
+    .booking-meta { font-size:13px; color:var(--muted); display:flex; flex-wrap:wrap; gap:10px; }
+    .empty-state { text-align:center; padding:50px 20px; }
+    .empty-state .empty-icon { font-size:56px; margin-bottom:16px; opacity:0.4; }
+    .empty-state h3 { font-family:'Playfair Display',serif; font-size:20px; color:var(--muted); margin-bottom:8px; }
+    .empty-state p  { font-size:14px; color:var(--muted); }
+    .toast { position:fixed; bottom:30px; right:30px; background:var(--earth); color:white; padding:14px 22px; border-radius:14px; font-size:14px; font-weight:500; box-shadow:var(--shadow-lg); z-index:999; transform:translateY(100px); opacity:0; transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    .toast.show { transform:translateY(0); opacity:1; }
+    @media(max-width:600px) { .form-row{grid-template-columns:1fr;} nav{padding:0 16px;} .logo{font-size:18px;} }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Connect<span>BahirDar</span></div>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="openMyBookings()">My Bookings <span class="badge" id="booking-count">0</span></button>
+    <button class="nav-btn primary">🏨 Hotels</button>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>Find Your Perfect Room in Bahir Dar</h1>
+  <p>Premium hotels on the shores of Lake Tana — book in minutes</p>
+</div>
+
+<div class="filters">
+  <button class="filter-btn active" onclick="filterRooms('all',this)">All Rooms</button>
+  <button class="filter-btn" onclick="filterRooms('Single',this)">Single</button>
+  <button class="filter-btn" onclick="filterRooms('Double',this)">Double</button>
+  <button class="filter-btn" onclick="filterRooms('Suite',this)">Suite</button>
+  <button class="filter-btn" onclick="filterRooms('Deluxe',this)">Deluxe</button>
+</div>
+
+<main>
+  <div>
+    <h2 class="section-title">Available Rooms</h2>
+    <p class="section-subtitle">Select a room to begin your booking</p>
+  </div>
+  <div class="room-grid" id="room-grid">
+    <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">Loading rooms...</div>
+  </div>
+</main>
+
+<!-- BOOKING MODAL -->
+<div class="modal-overlay" id="booking-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-room-name">Book Room</h2>
+      <p id="modal-hotel-name">Hotel Name</p>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- MY BOOKINGS MODAL -->
+<div class="modal-overlay" id="bookings-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h2>My Bookings</h2>
+      <p>Your booking history</p>
+      <button class="modal-close" onclick="closeBookingsModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="bookings-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────
+const CONFIG = {
+  SUPABASE_URL:      'https://ihqpzyxlqgibgrcjkhri.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlocXB6eXhscWdpYmdyY2praHJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwNjkzNzksImV4cCI6MjA5MzY0NTM3OX0.dEl0JZYfT6mrM6UWcfEu6GVXEqHitowsskr_pRMt7n0',
+  API_URL:           'http://127.0.0.1:8000',
+};
+
+const { createClient } = supabase;
+const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+// ── STATE ──────────────────────────────────────────────────────
+const CBE_ACCOUNT      = '1000039338789';
+const CBE_ACCOUNT_NAME = 'ConnectBahirDar Services';
+let myBookings   = [];
+let allRooms     = [];
+let currentRoom  = null;
+let currentStep  = 1;
+let bookingData  = {};
+let uploadedFile = null;
+
+// ── LOAD ROOMS FROM SUPABASE ────────────────────────────────────
+async function loadRooms() {
+  try {
+    const { data, error } = await sb
+      .from('rooms')
+      .select('id, room_number, room_type, price_per_night, description, amenities, status, image_url, hotels(name, location)')
+      .order('room_type');
+    if (error) throw error;
+    allRooms = data || [];
+    renderRooms();
+    subscribeRealtime();
+  } catch(e) {
+    console.error('Load rooms error:', e);
+    // Fallback to demo data if Supabase not configured
+    allRooms = [
+      {id:'1',room_number:'401',room_type:'Suite',  price_per_night:850,  status:'available',amenities:['WiFi','AC','Lake View','Breakfast'],image_url:'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600',hotels:{name:'Tana Resort Hotel'}},
+      {id:'2',room_number:'201',room_type:'Double', price_per_night:520,  status:'available',amenities:['WiFi','AC','Garden View'],           image_url:'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=600',hotels:{name:'Tana Resort Hotel'}},
+      {id:'3',room_number:'301',room_type:'Deluxe', price_per_night:680,  status:'available',amenities:['WiFi','AC','TV','Mini Bar'],          image_url:'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600',hotels:{name:'Tana Resort Hotel'}},
+      {id:'4',room_number:'101',room_type:'Single', price_per_night:320,  status:'occupied', amenities:['WiFi','Fan'],                         image_url:'https://images.unsplash.com/photo-1631049422822-ada1cf5e5c44?w=600',hotels:{name:'Tana Resort Hotel'}},
+      {id:'5',room_number:'501',room_type:'Suite',  price_per_night:1500, status:'available',amenities:['WiFi','AC','Panoramic View','Jacuzzi'],image_url:'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=600',hotels:{name:'Tana Resort Hotel'}},
+      {id:'6',room_number:'202',room_type:'Double', price_per_night:450,  status:'available',amenities:['WiFi','AC','TV'],                     image_url:'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600',hotels:{name:'Tana Resort Hotel'}},
+    ];
+    renderRooms();
+  }
+}
+
+function subscribeRealtime() {
+  sb.channel('room-status')
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'rooms'}, payload => {
+      const idx = allRooms.findIndex(r => r.id === payload.new.id);
+      if (idx !== -1) { allRooms[idx].status = payload.new.status; renderRooms(); }
+    })
+    .subscribe();
+}
+
+// ── RENDER ──────────────────────────────────────────────────────
+function renderRooms(filter='all') {
+  const grid = document.getElementById('room-grid');
+  const filtered = filter === 'all' ? allRooms : allRooms.filter(r => r.room_type === filter);
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">&#128269;</div><h3>No rooms found</h3><p>Try a different filter</p></div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(room => {
+    const hotel = room.hotels || {};
+    const amenities = Array.isArray(room.amenities) ? room.amenities : [];
+    return `
+      <div class="room-card">
+        <div class="room-img-wrap">
+          <img src="${room.image_url || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=600'}" alt="${room.room_type}" loading="lazy" />
+          <div class="room-badge ${room.status}">${room.status==='available'?'&#10003; Available':room.status==='occupied'?'&#10005; Occupied':'&#9203; Pending'}</div>
+          <div class="room-price-tag">ETB ${Number(room.price_per_night).toLocaleString()}/night</div>
+        </div>
+        <div class="room-body">
+          <div class="room-name">${room.room_type} Room #${room.room_number}</div>
+          <div class="room-hotel">&#128205; ${hotel.name || 'Tana Resort Hotel'}</div>
+          <div class="room-tags">${amenities.map(a=>`<span class="room-tag">${a}</span>`).join('')}</div>
+          <div class="room-footer">
+            <div class="room-rating"><span>&#9733;</span> ${room.room_type === 'Suite' ? '4.9' : '4.6'} &middot; ${room.room_type}</div>
+            <button class="book-btn" onclick="openBooking('${room.id}')" ${room.status!=='available'?'disabled':''}>
+              ${room.status==='available'?'Book Now':'Unavailable'}
+            </button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function filterRooms(type, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRooms(type);
+}
+
+// ── BOOKING FLOW ────────────────────────────────────────────────
+function openBooking(roomId) {
+  currentRoom  = allRooms.find(r => r.id === roomId);
+  currentStep  = 1;
+  bookingData  = {};
+  uploadedFile = null;
+  const hotel  = currentRoom.hotels || {};
+  document.getElementById('modal-room-name').textContent = `${currentRoom.room_type} Room #${currentRoom.room_number}`;
+  document.getElementById('modal-hotel-name').textContent = hotel.name || '';
+  document.getElementById('booking-modal').classList.add('open');
+  renderStep(1);
+}
+function closeModal() { document.getElementById('booking-modal').classList.remove('open'); }
+
+function renderStep(step) {
+  currentStep = step;
+  const body = document.getElementById('modal-body');
+  const hotel = (currentRoom.hotels || {});
+  const steps = `
+    <div class="steps">
+      <div class="step ${step>=1?(step>1?'done':'active'):''}"><div class="step-dot">${step>1?'&#10003;':'1'}</div><div class="step-label">Guest Info</div></div>
+      <div class="step ${step>=2?(step>2?'done':'active'):''}"><div class="step-dot">${step>2?'&#10003;':'2'}</div><div class="step-label">Dates</div></div>
+      <div class="step ${step>=3?'active':''}"><div class="step-dot">3</div><div class="step-label">Payment</div></div>
+    </div>`;
+  const img = currentRoom.image_url || 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=600';
+  const summary = `
+    <div class="room-summary">
+      <img src="${img}" alt="${currentRoom.room_type}" />
+      <div class="room-summary-info">
+        <h4>${currentRoom.room_type} #${currentRoom.room_number}</h4>
+        <p>&#128205; ${hotel.name || ''}</p>
+      </div>
+      <div class="room-summary-price">
+        <strong>ETB ${Number(currentRoom.price_per_night).toLocaleString()}</strong>
+        <small>/night</small>
+      </div>
+    </div>`;
+
+  if (step === 1) {
+    body.innerHTML = steps + summary + `
+      <div class="form-group">
+        <label class="form-label">Full Name <span class="required">*</span></label>
+        <input class="form-input" id="guest-name" placeholder="e.g. Abebe Girma" value="${bookingData.name||''}" />
+        <div class="error-msg" id="err-name"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone Number <span class="required">*</span></label>
+        <input class="form-input" id="guest-phone" type="tel" placeholder="e.g. 0911234567" value="${bookingData.phone||''}" />
+        <div class="form-hint">We'll send your booking confirmation to this number.</div>
+        <div class="error-msg" id="err-phone"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email <span style="color:var(--muted);font-weight:400">(Optional)</span></label>
+        <input class="form-input" id="guest-email" type="email" placeholder="you@example.com" value="${bookingData.email||''}" />
+      </div>
+      <div class="modal-actions"><button class="btn-next" onclick="validateStep1()">Continue &#8594;</button></div>`;
+  }
+  else if (step === 2) {
+    const today = new Date().toISOString().split('T')[0];
+    body.innerHTML = steps + summary + `
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Check-in <span class="required">*</span></label>
+          <input class="form-input" type="date" id="check-in" min="${today}" value="${bookingData.checkIn||''}" onchange="calcPrice()" />
+          <div class="error-msg" id="err-checkin"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Check-out <span class="required">*</span></label>
+          <input class="form-input" type="date" id="check-out" min="${today}" value="${bookingData.checkOut||''}" onchange="calcPrice()" />
+          <div class="error-msg" id="err-checkout"></div>
+        </div>
+      </div>
+      <div id="price-breakdown-container"></div>
+      <div class="modal-actions">
+        <button class="btn-back" onclick="renderStep(1)">&#8592; Back</button>
+        <button class="btn-next" onclick="validateStep2()">Continue &#8594;</button>
+      </div>`;
+    if (bookingData.checkIn && bookingData.checkOut) calcPrice();
+  }
+  else if (step === 3) {
+    const nights   = bookingData.nights || 1;
+    const price    = Number(currentRoom.price_per_night);
+    const subtotal = price * nights;
+    const fee      = Math.round(subtotal * 0.05);
+    const total    = subtotal + fee;
+    body.innerHTML = steps + `
+      <div class="price-breakdown">
+        <h4>&#128176; Payment Summary</h4>
+        <div class="price-row"><span>ETB ${price.toLocaleString()} &times; ${nights} night${nights>1?'s':''}</span><span>ETB ${subtotal.toLocaleString()}</span></div>
+        <div class="price-row"><span>Service fee (5%)</span><span>ETB ${fee.toLocaleString()}</span></div>
+        <div class="price-row total"><span>Total Due</span><span>ETB ${total.toLocaleString()}</span></div>
+      </div>
+      <div class="payment-box">
+        <div class="payment-box-header">
+          <div class="cbe-icon">&#127974;</div>
+          <div><h4>Commercial Bank of Ethiopia</h4><small>Transfer exact amount to confirm booking</small></div>
+        </div>
+        <div class="acct-number">
+          <div><div class="label">Account Number</div><div class="number">${CBE_ACCOUNT}</div></div>
+          <button class="copy-btn" onclick="copyAcct()">Copy</button>
+        </div>
+        <div class="acct-number" style="margin-top:8px">
+          <div><div class="label">Account Name</div><div style="font-size:15px;font-weight:600">${CBE_ACCOUNT_NAME}</div></div>
+        </div>
+        <ul class="payment-steps-list" style="margin-top:12px">
+          <li>Open CBE Birr or your bank app</li>
+          <li>Transfer exactly <strong>ETB ${total.toLocaleString()}</strong></li>
+          <li>Note your Transaction Reference number</li>
+          <li>Upload screenshot below</li>
+        </ul>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Transaction Reference <span class="required">*</span></label>
+        <input class="form-input" id="txn-ref" placeholder="e.g. TXN202412345" value="${bookingData.txnRef||''}" />
+        <div class="form-hint">Found in your bank SMS or app receipt</div>
+        <div class="error-msg" id="err-txn"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Method <span class="required">*</span></label>
+        <select class="form-input" id="pay-method">
+          <option value="">Select method...</option>
+          <option value="telebirr" ${bookingData.payMethod==='telebirr'?'selected':''}>TeleBirr</option>
+          <option value="bank_transfer" ${bookingData.payMethod==='bank_transfer'?'selected':''}>CBE Online Banking</option>
+        </select>
+        <div class="error-msg" id="err-method"></div>
+      </div>
+      <label class="form-label">Payment Screenshot <span class="required">*</span></label>
+      <div class="upload-zone ${uploadedFile?'has-file':''}" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept="image/*" onchange="handleFile(this)" />
+        <div class="upload-icon">${uploadedFile?'&#9989;':'&#128247;'}</div>
+        <strong>${uploadedFile?uploadedFile.name:'Tap to upload screenshot'}</strong>
+        <p>${uploadedFile?'File selected — tap to change':'JPG, PNG or WEBP &middot; Max 5MB'}</p>
+      </div>
+      <div class="error-msg" id="err-file"></div>
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn-back" onclick="renderStep(2)">&#8592; Back</button>
+        <button class="btn-confirm" onclick="submitBooking()">&#10003; Confirm Booking</button>
+      </div>`;
+  }
+}
+
+function validateStep1() {
+  const name  = document.getElementById('guest-name').value.trim();
+  const phone = document.getElementById('guest-phone').value.trim();
+  const email = document.getElementById('guest-email').value.trim();
+  let valid = true;
+  document.getElementById('err-name').textContent = '';
+  document.getElementById('err-phone').textContent = '';
+  if (name.length < 3) { document.getElementById('err-name').textContent = 'Please enter your full name (min 3 characters)'; valid=false; }
+  if (!/^0[79]\d{8}$|^\+251[79]\d{8}$/.test(phone)) { document.getElementById('err-phone').textContent = 'Enter a valid Ethiopian phone (e.g. 0911234567)'; valid=false; }
+  if (valid) { bookingData.name=name; bookingData.phone=phone; bookingData.email=email; renderStep(2); }
+}
+
+function validateStep2() {
+  const ci = document.getElementById('check-in').value;
+  const co = document.getElementById('check-out').value;
+  let valid = true;
+  document.getElementById('err-checkin').textContent = '';
+  document.getElementById('err-checkout').textContent = '';
+  if (!ci)         { document.getElementById('err-checkin').textContent='Select check-in date'; valid=false; }
+  if (!co)         { document.getElementById('err-checkout').textContent='Select check-out date'; valid=false; }
+  if (ci && co && co <= ci) { document.getElementById('err-checkout').textContent='Check-out must be after check-in'; valid=false; }
+  if (valid) {
+    bookingData.checkIn  = ci;
+    bookingData.checkOut = co;
+    bookingData.nights   = Math.ceil((new Date(co)-new Date(ci))/86400000);
+    renderStep(3);
+  }
+}
+
+function calcPrice() {
+  const ci = document.getElementById('check-in')?.value;
+  const co = document.getElementById('check-out')?.value;
+  const c  = document.getElementById('price-breakdown-container');
+  if (!c) return;
+  if (ci && co && co > ci) {
+    const nights   = Math.ceil((new Date(co)-new Date(ci))/86400000);
+    const price    = Number(currentRoom.price_per_night);
+    const subtotal = price * nights;
+    const fee      = Math.round(subtotal * 0.05);
+    c.innerHTML = `<div class="price-breakdown"><h4>&#128176; Price Estimate</h4>
+      <div class="price-row"><span>ETB ${price.toLocaleString()} &times; ${nights} night${nights>1?'s':''}</span><span>ETB ${subtotal.toLocaleString()}</span></div>
+      <div class="price-row"><span>Service fee (5%)</span><span>ETB ${fee.toLocaleString()}</span></div>
+      <div class="price-row total"><span>Total</span><span>ETB ${(subtotal+fee).toLocaleString()}</span></div></div>`;
+  } else { c.innerHTML=''; }
+}
+
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { showToast('File too large! Max 5MB.'); return; }
+  uploadedFile = file;
+  const zone = input.closest('.upload-zone');
+  zone.classList.add('has-file');
+  zone.querySelector('.upload-icon').textContent = '✅';
+  zone.querySelector('strong').textContent = file.name;
+  zone.querySelector('p').textContent = 'File selected — tap to change';
+  document.getElementById('err-file').textContent = '';
+}
+
+async function submitBooking() {
+  const txnRef    = document.getElementById('txn-ref').value.trim();
+  const payMethod = document.getElementById('pay-method').value;
+  let valid = true;
+  document.getElementById('err-txn').textContent    = '';
+  document.getElementById('err-method').textContent = '';
+  document.getElementById('err-file').textContent   = '';
+  if (txnRef.length < 4)  { document.getElementById('err-txn').textContent='Enter a valid transaction reference'; valid=false; }
+  if (!payMethod)          { document.getElementById('err-method').textContent='Select a payment method'; valid=false; }
+  if (!uploadedFile)       { document.getElementById('err-file').textContent='Upload your payment screenshot'; valid=false; }
+  if (!valid) return;
+
+  const btn = document.querySelector('.btn-confirm');
+  btn.textContent = 'Submitting...';
+  btn.disabled    = true;
+
+  try {
+    const form = new FormData();
+    form.append('guest_name',            bookingData.name);
+    form.append('guest_phone',           bookingData.phone);
+    form.append('guest_email',           bookingData.email || '');
+    form.append('room_id',               currentRoom.id);
+    form.append('hotel_id',              currentRoom.hotel_id || '');
+    form.append('check_in_date',         bookingData.checkIn);
+    form.append('check_out_date',        bookingData.checkOut);
+    form.append('payment_method',        payMethod);
+    form.append('transaction_reference', txnRef);
+    form.append('screenshot',            uploadedFile);
+
+    const res = await fetch(`${CONFIG.API_URL}/api/bookings`, { method:'POST', body:form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Booking failed');
+
+    const booking = {
+      id:         data.booking_id,
+      reference:  data.reference,
+      roomName:   `${currentRoom.room_type} #${currentRoom.room_number}`,
+      hotel:      (currentRoom.hotels||{}).name || '',
+      image:      currentRoom.image_url,
+      guestName:  bookingData.name,
+      phone:      bookingData.phone,
+      checkIn:    bookingData.checkIn,
+      checkOut:   bookingData.checkOut,
+      nights:     bookingData.nights,
+      total:      Number(currentRoom.price_per_night)*bookingData.nights + Math.round(Number(currentRoom.price_per_night)*bookingData.nights*0.05),
+      status:     'pending',
+    };
+    myBookings.unshift(booking);
+    document.getElementById('booking-count').textContent = myBookings.length;
+    showSuccess(booking);
+  } catch(e) {
+    showToast('Error: ' + e.message);
+    btn.textContent = '&#10003; Confirm Booking';
+    btn.disabled    = false;
+  }
+}
+
+function showSuccess(b) {
+  document.getElementById('modal-body').innerHTML = `
+    <div class="success-view">
+      <div class="success-icon">&#127881;</div>
+      <h3>Booking Submitted!</h3>
+      <p>Thank you, <strong>${b.guestName}</strong>!<br>
+      Your booking is under review. We'll notify you at<br><strong>${b.phone}</strong> once confirmed.</p>
+      <div class="success-ref">
+        <small>Booking Reference</small>
+        <div class="ref-code">${b.reference}</div>
+        <small>${b.roomName} &middot; ${b.nights} night${b.nights>1?'s':''} &middot; ETB ${b.total.toLocaleString()}</small>
+      </div>
+      <div class="modal-actions" style="justify-content:center">
+        <button class="btn-next" onclick="closeModal()">Done &#10003;</button>
+      </div>
+    </div>`;
+  document.getElementById('modal-room-name').textContent = 'Booking Confirmed!';
+  document.getElementById('modal-hotel-name').textContent = b.reference;
+}
+
+// ── MY BOOKINGS ─────────────────────────────────────────────────
+function openMyBookings() {
+  document.getElementById('bookings-modal').classList.add('open');
+  renderBookings();
+}
+function closeBookingsModal() { document.getElementById('bookings-modal').classList.remove('open'); }
+
+function renderBookings() {
+  const body = document.getElementById('bookings-body');
+  if (!myBookings.length) {
+    body.innerHTML = '<div class="empty-state"><div class="empty-icon">&#127968;</div><h3>No bookings yet</h3><p>Browse our rooms and make your first booking!</p></div>';
+    return;
+  }
+  body.innerHTML = myBookings.map(b => `
+    <div class="booking-item">
+      <img src="${b.image||''}" class="booking-item-img" alt="${b.roomName}" />
+      <div class="booking-item-body">
+        <div class="booking-item-header">
+          <div class="booking-item-name">${b.roomName}</div>
+          <div class="status-pill ${b.status}">${b.status.charAt(0).toUpperCase()+b.status.slice(1)}</div>
+        </div>
+        <div class="booking-meta">
+          <span>&#128100; ${b.guestName}</span>
+          <span>&#128222; ${b.phone}</span>
+          <span>&#128197; ${b.checkIn} &#8594; ${b.checkOut}</span>
+          <span>&#127769; ${b.nights} night${b.nights>1?'s':''}</span>
+          <span>&#128176; ETB ${b.total.toLocaleString()}</span>
+          <span>&#128278; ${b.reference}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function copyAcct() {
+  navigator.clipboard.writeText(CBE_ACCOUNT).then(() => showToast('Account number copied! &#10003;'));
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+document.getElementById('booking-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+document.getElementById('bookings-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeBookingsModal(); });
+
+loadRooms();
+</script>
+</body>
+</html>
