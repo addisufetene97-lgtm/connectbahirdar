@@ -21,7 +21,7 @@ cp ../.env.example .env
 # Fill in all values in .env
 pip install -r requirements.txt
 python main.py
-# Backend runs on http://localhost:8000
+# Backend runs on https://semicommunicative-cyphellate-brittaney.ngrok-free.dev
 ```
 
 ## Step 4: Register Telegram Webhook
@@ -39,7 +39,7 @@ Edit the CONFIG block at the top of the file:
 const CONFIG = {
   SUPABASE_URL:     'https://xxx.supabase.co',
   SUPABASE_ANON_KEY:'eyJ...',
-  API_URL:          'http://localhost:8000',
+  API_URL:          'https://semicommunicative-cyphellate-brittaney.ngrok-free.dev',
   INTERNAL_SECRET:  'your-internal-secret',
 };
 ```
